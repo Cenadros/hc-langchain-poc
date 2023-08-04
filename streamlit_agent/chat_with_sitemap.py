@@ -11,17 +11,19 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chains import ConversationalRetrievalChain
 from langchain.vectorstores import Pinecone
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.text_splitter import (
+    RecursiveCharacterTextSplitter,
+    Language,
+)
 
 nest_asyncio.apply()
-index_name = "test-index"
 pinecone.init(
     api_key="d7da79ed-8b66-4f1a-8d57-9c630b5c0412",
     environment="us-west1-gcp"
 )
 
-st.set_page_config(page_title="Chatea sobre enfermedades con Hospital Clínic", page_icon="🏥")
-st.title("🏥 Chatea sobre enfermedades con Hospital Clínic")
+st.set_page_config(page_title="Chatea sobre el contenido de una web", page_icon="🌍")
+st.title("🌍 Chatea sobre el contenido de una web")
 
 
 @st.cache_resource(ttl="1h")
@@ -36,39 +38,50 @@ def remove_nav_and_header_elements(_content: BeautifulSoup) -> str:
 
     return str(_content.get_text())
 
-def check_index():
+def check_index(index_name):
     if index_name not in pinecone.list_indexes():
         return False
     else:
         return True
 
-def configure_retriever(openai_api_key):
+def configure_retriever(openai_api_key, sitemap_url):
     # Create embeddings and store in vectordb
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
-    if check_index() == False:
-        with st.spinner('Cargando datos...'):
+    # create index name making a hash from sitemap_url
+    index_name = "webchat-" + str(hash(sitemap_url))
+
+    if check_index(index_name) == False or pinecone.Index(index_name).describe_index_stats().total_vector_count == 0:
+        with st.spinner('Procesando URLs del Sitemap...'):
             # Read documents
             docs = []
             loader = SitemapLoader(
-              web_path='https://esade.edu/sitemap.xml',
+              web_path=sitemap_url,
 #               filter_urls=[
 #                   ".*/asistencia/enfermedades/cancer$",
 #               ],
               parsing_function=remove_nav_and_header_elements,
             )
             loader.requests_per_second = 2
-            # Optional: avoid `[SSL: CERTIFICATE_VERIFY_FAILED]` issue
             loader.requests_kwargs = {"verify": False}
             docs.extend(loader.load())
 
             # Split documents
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=200)
+            text_splitter = RecursiveCharacterTextSplitter.from_language(language=Language.HTML, chunk_size=1500, chunk_overlap=200)
             splits = text_splitter.split_documents(docs)
+
+        with st.spinner('Eliminando índices previos...'):
+            # Remove all indexes (until account is upgraded)
+            indexes = pinecone.list_indexes()
+            for idx, index in enumerate(indexes):
+                pinecone.delete_index(index)
+
         with st.spinner('Creando indice...'):
             pinecone.create_index(index_name, metric="cosine", shards=1, dimension=1536, pod_type="p2.x1")
+
+        with st.spinner('Insertando documentos en el índice...'):
             vectordb = Pinecone.from_documents(splits, embeddings, index_name=index_name)
     else:
-        with st.spinner('Creando indice...'):
+        with st.spinner('Cargando indice existente...'):
             vectordb = Pinecone.from_existing_index(index_name, embeddings)
 
     # Define retriever
@@ -99,20 +112,26 @@ class PrintRetrievalHandler(BaseCallbackHandler):
         for idx, doc in enumerate(documents):
             source = doc.metadata["source"]
             self.container.write(f"**{source}**")
+#             self.container.markdown(doc.page_content)
 
 openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.")
+    st.info("Por favor, introduce tu API Key de OpenAI para continuar.")
     st.stop()
 
-retriever = configure_retriever(openai_api_key)
+sitemap_url = st.sidebar.text_input("URL del sitemap")
+if not sitemap_url:
+    st.info("Por favor, introduce la URL del sitemap para continuar.")
+    st.stop()
+
+retriever = configure_retriever(openai_api_key, sitemap_url)
 
 # Setup memory for contextual conversation
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
 # Setup LLM and QA chain
 llm = ChatOpenAI(
-    model_name="gpt-3.5-turbo", openai_api_key=openai_api_key, temperature=0, streaming=True
+    model_name="gpt-3.5-turbo", openai_api_key=openai_api_key, temperature=0.5, streaming=True
 )
 qa_chain = ConversationalRetrievalChain.from_llm(
     llm, retriever=retriever, memory=memory, verbose=True
