@@ -57,7 +57,7 @@ def configure_retriever(openai_api_key, sitemap_url):
             loader = SitemapLoader(
               web_path=sitemap_url,
               filter_urls=[
-                  ".*/asistencia/enfermedades/.*",
+                  ".*/asistencia/enfermedades/cancer.*",
               ],
               parsing_function=remove_nav_and_header_elements,
             )
