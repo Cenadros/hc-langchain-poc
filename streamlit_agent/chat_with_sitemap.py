@@ -11,7 +11,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chains import ConversationalRetrievalChain
 from langchain.vectorstores import Pinecone
-from langchain.text_splitter CharacterTextSplitter
+from langchain.text_splitter import CharacterTextSplitter
 
 nest_asyncio.apply()
 pinecone.init(
