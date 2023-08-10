@@ -44,7 +44,7 @@ def check_index(index_name):
     else:
         return True
 
-def configure_retriever(openai_api_key, sitemap_url):
+def configure_retriever(openai_api_key):
     # Create embeddings and store in vectordb
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     # create index name making a hash from sitemap_url
@@ -55,10 +55,10 @@ def configure_retriever(openai_api_key, sitemap_url):
             # Read documents
             docs = []
             loader = SitemapLoader(
-              web_path=sitemap_url,
-#               filter_urls=[
-#                   ".*/asistencia/enfermedades/cancer$",
-#               ],
+              web_path="https://preclinic.runroom.dev/sitemap-dev.xml",
+              filter_urls=[
+                  ".*/asistencia/enfermedades/.*",
+              ],
               parsing_function=remove_nav_and_header_elements,
             )
             loader.requests_per_second = 2
@@ -119,12 +119,12 @@ if not openai_api_key:
     st.info("Por favor, introduce tu API Key de OpenAI para continuar.")
     st.stop()
 
-sitemap_url = st.sidebar.text_input("URL del sitemap")
-if not sitemap_url:
-    st.info("Por favor, introduce la URL del sitemap para continuar.")
-    st.stop()
+# sitemap_url = st.sidebar.text_input("URL del sitemap")
+# if not sitemap_url:
+#     st.info("Por favor, introduce la URL del sitemap para continuar.")
+#     st.stop()
 
-retriever = configure_retriever(openai_api_key, sitemap_url)
+retriever = configure_retriever(openai_api_key)
 
 # Setup memory for contextual conversation
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
