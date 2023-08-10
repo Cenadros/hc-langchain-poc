@@ -11,10 +11,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chains import ConversationalRetrievalChain
 from langchain.vectorstores import Pinecone
-from langchain.text_splitter import (
-    RecursiveCharacterTextSplitter,
-    Language,
-)
+from langchain.text_splitter CharacterTextSplitter
 
 nest_asyncio.apply()
 pinecone.init(
@@ -66,7 +63,7 @@ def configure_retriever(openai_api_key, sitemap_url):
             docs.extend(loader.load())
 
             # Split documents
-            text_splitter = RecursiveCharacterTextSplitter.from_language(language=Language.HTML, chunk_size=1500, chunk_overlap=200)
+            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
             splits = text_splitter.split_documents(docs)
 
         with st.spinner('Eliminando índices previos...'):
@@ -134,7 +131,7 @@ llm = ChatOpenAI(
     model_name="gpt-3.5-turbo", openai_api_key=openai_api_key, temperature=0, streaming=True
 )
 qa_chain = ConversationalRetrievalChain.from_llm(
-    llm, retriever=retriever, memory=memory, verbose=True
+    llm, retriever=retriever, memory=memory, verbose=True, max_tokens_limit=2000
 )
 
 if "messages" not in st.session_state or st.sidebar.button("Borrar historial de chat"):
