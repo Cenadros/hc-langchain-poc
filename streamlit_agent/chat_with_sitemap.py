@@ -82,7 +82,7 @@ def configure_retriever(openai_api_key, sitemap_url):
             vectordb = Pinecone.from_existing_index(index_name, embeddings)
 
     # Define retriever
-    retriever = vectordb.as_retriever(search_type="similarity_score_threshold", search_kwargs={"score_threshold": .5})
+    retriever = vectordb.as_retriever(search_type="mmr", search_kwargs={"k": 4, "fetch_k": 10})
 
     return retriever
 
